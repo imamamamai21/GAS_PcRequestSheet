@@ -1,5 +1,5 @@
 var FormSheet = function(className) {
-  this.sheet = SpreadsheetApp.openById(MY_SHEET_ID).getSheetByName('フォーム回答(' + className + ')');
+  this.sheet = SpreadsheetApp.openById(MY_SHEET_ID).getSheetByName('回答(' + className + ')');
   this.values = this.sheet.getDataRange().getValues();
   this.index = {};
   this.titleRow = 2;
@@ -12,7 +12,7 @@ var FormSheet = function(className) {
       showTitleError();
       return;
     }
-    this.index = Object.assign(getFormIndex(filterData), { task: filterData.indexOf('タスク化済み') } );
+    this.index = Object.assign(getFormIndex(filterData), { task: filterData.indexOf('タスク化') } );
     return this.index;
   }
 }
@@ -34,13 +34,17 @@ FormSheet.prototype = {
     if (this.values[lastRow - 1][this.index.task] != '') return null;
 
     // タスク化済にチェックを入れて対象データを返す
-    this.sheet.getRange(this.getRowKey('task') + lastRow).setValue(true);
+    this.sheet.getRange(this.getRowKey('task') + lastRow).setValue('済');
     return this.values[lastRow - 1];
   }
 };
 
 var koukokuFormSheet = new FormSheet('広告本部');
-var caFormSheet = new FormSheet('その他CA');
+var caFormSheet      = new FormSheet('その他CA');
+var aiFormSheet      = new FormSheet('AI事業本部');
+//var companyFormSheet = new FormSheet('子会社');
 
 function formTest() {
+  var f = companyFormSheet
+  var hoge = ''
 }
