@@ -2,26 +2,28 @@
  * フォームの回答受信時に実行する
  * トリガー設定(池田)
  */
-function submitForm() {
+function updateForm() {
   var formIndex = {};
   var data = null;
   
   // どのフォームが更新されたかでデータを変える
-  var koukokuData = aiFormSheet.getUpdateForm();
-  if (koukokuData) {
-    data = koukokuData; formIndex = koukokuFormSheet.getIndex();
+  data = koukokuFormSheet.getNewData();
+  if (data != null) {
+    formIndex = koukokuFormSheet.getIndex();
+    formIndex.affiliation = 100; // 存在しない項目をセット
+    data[formIndex.affiliation] = '広告本部';
   } else {
-    var caData = caFormSheet.getUpdateForm();
-    if (caData) {
-      data = caData; formIndex = caFormSheet.getIndex();
+    data = caFormSheet.getNewData();
+    if (data != null) {
+      formIndex = caFormSheet.getIndex();
     } else {
-      var aiData = aiFormSheet.getUpdateForm();
-      if (aiData) { data = aiData; formIndex = aiFormSheet.getIndex(); }
+      data = aiFormSheet.getNewData();
+      if (data != null) {
+        formIndex = aiFormSheet.getIndex();
+        formIndex.affiliation = 100; // 存在しない項目をセット
+        data[formIndex.affiliation] = 'AI事業本部';
+      }
     }
-    /* 子会社は一旦対象外
-    var companyData = companyFormSheet.getUpdateForm();
-    if (companyData) { data = companyData; formIndex = companyFormSheet.getIndex(); }
-    */
   }
   if (data === null) return;
   
@@ -62,9 +64,10 @@ function botWhenRequestComes(data, index) { // PC依頼用BOTで送る
 function sendMail() {
   var rowNum = Browser.inputBox('依頼者にPC提案のメールを送ります', '対応する行数を半角数字で入力してください。', Browser.Buttons.OK);
   var data = createMailData(rowNum);
-  if (data.text === '') return;
+  if (!data || data.text === '') return;
   
   // メールを送る
+  var index = ordersSheet.getIndex();
   var target = ordersSheet.values[Number(rowNum) - 1];
   var sendSuccess = mailSheet.sendMail(target[index.requesterMail], target[index.userMail], data.title, data.text, true);
   if (!sendSuccess) return;
@@ -79,7 +82,7 @@ function sendMail() {
 function createMailText() {
   var rowNum = Browser.inputBox('メール本文を作成します。', '対応する行数を半角数字で入力してください。', Browser.Buttons.OK);
   var data = createMailData(rowNum);
-  if (data.text === '') return;
+  if (!data || data.text === '') return;
   ordersSheet.sheet.getRange(ordersSheet.getRowKey('mailText') + rowNum).setValue(data.text);
   Browser.msgBox(rowNum + '行目【メール文章】欄に入力されました。ご確認ください。');
 }
@@ -89,18 +92,18 @@ function createMailText() {
  */
 function createMailData(rowNum) {
   var target = ordersSheet.values[Number(rowNum) - 1];
-  if (!target) { Browser.msgBox('データが見つかりません'); return; }
+  if (!target) { Browser.msgBox('データが見つかりません'); return null; }
   
   var index = ordersSheet.getIndex();
   
-  if (target[index.mailDate] != '') { Browser.msgBox(rowNum + '行目はすでにメールを送っています。'); return; }
-  if (target[index.checkPerson] === '') { Browser.msgBox(rowNum + '行目は担当者が書かれていません。記入してやり直してください。'); return; }
+  if (target[index.mailDate] != '') { Browser.msgBox(rowNum + '行目はすでにメールを送っています。'); return null; }
+  if (target[index.checkPerson] === '') { Browser.msgBox(rowNum + '行目は担当者が書かれていません。記入してやり直してください。'); return null; }
   
   var candidate1 = target[index.candidate1];
-  if (candidate1 === '') { Browser.msgBox(rowNum + '行目は提案するPC情報が書かれていません。記入してやり直してください。'); return; }
+  if (candidate1 === '') { Browser.msgBox(rowNum + '行目は提案するPC情報が書かれていません。記入してやり直してください。'); return null; }
   
   var popup = Browser.msgBox(target[index.requesterName] + 'さんの依頼に返事をします。', '実行してよろしいですか？ ' + TEXT_MAIL_SETTING, Browser.Buttons.OK_CANCEL);
-  if (popup != 'ok') return;
+  if (popup != 'ok') return null;
   
   var mailType = (candidate1.indexOf('CA-') === 0) ? 'proposalByStock' : 'newRental';
   return mailSheet.createMailData(target, mailType);

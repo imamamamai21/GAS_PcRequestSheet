@@ -1,5 +1,5 @@
-var FormSheet = function(className) {
-  this.sheet = SpreadsheetApp.openById(MY_SHEET_ID).getSheetByName('回答(' + className + ')');
+var FormSheet = function(sheetName) {
+  this.sheet = SpreadsheetApp.openById(MY_SHEET_ID).getSheetByName('回答(' + sheetName + ')');
   this.values = this.sheet.getDataRange().getValues();
   this.index = {};
   this.titleRow = 2;
@@ -28,10 +28,12 @@ FormSheet.prototype = {
   getIndex: function() {
     return Object.keys(this.index).length ? this.index : this.createIndex();
   },
-  getUpdateForm: function() {
-    var index = this.getIndex();
+  /**
+   * 「タスク化」欄が「済」になっていないデータを返す
+   */
+  getNewData: function() {
     var lastRow = this.sheet.getRange('A:A').getValues().filter(String).length;
-    if (this.values[lastRow - 1][this.index.task] != '') return null;
+    if (this.values[lastRow - 1][this.getIndex().task] != '') return null;
 
     // タスク化済にチェックを入れて対象データを返す
     this.sheet.getRange(this.getRowKey('task') + lastRow).setValue('済');
@@ -45,6 +47,6 @@ var aiFormSheet      = new FormSheet('AI事業本部');
 //var companyFormSheet = new FormSheet('子会社');
 
 function formTest() {
-  var f = companyFormSheet
+  var f = koukokuFormSheet.getNewData();
   var hoge = ''
 }
