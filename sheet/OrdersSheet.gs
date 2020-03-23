@@ -28,7 +28,6 @@ var OrdersSheet = function() {
       candidate5 : filterData.indexOf('PC候補5'),
       candidate6 : filterData.indexOf('PC候補6'),
       message    : filterData.indexOf('依頼者へのメッセージ'),
-      mailKind   : filterData.indexOf('メール種類'),
       memo       : filterData.indexOf('メモ'),
       mailDate   : filterData.indexOf('確認メール送信日時'),
       mailText   : filterData.indexOf('メール文章'),

@@ -20,8 +20,7 @@ function updateForm() {
       data = aiFormSheet.getNewData();
       if (data != null) {
         formIndex = aiFormSheet.getIndex();
-        formIndex.affiliation = 100; // 存在しない項目をセット
-        data[formIndex.affiliation] = 'AI事業本部';
+        data[formIndex.affiliation] = 'AI事業本部(' + data[formIndex.affiliation] + ')';
       }
     }
   }
@@ -34,7 +33,7 @@ function updateForm() {
     ordersSheet.sheet.getRange(ordersSheet.getRowKey(key) + lastRow).setValue(data[formIndex[key]]);
   });
   // オーダーNoをセット
-  ordersSheet.sheet.getRange(ordersSheet.getRowKey('orderNo') + lastRow).setValue(lastRow);
+  ordersSheet.sheet.getRange(ordersSheet.getRowKey('orderNo') + lastRow).setValue('P-' + lastRow);
   
   botWhenRequestComes(data, formIndex);
 }
@@ -43,8 +42,7 @@ function updateForm() {
  * 申請が来たときに通知するBOT
  */
 function botWhenRequestComes(data, index) { // PC依頼用BOTで送る
-  //WorkplaceApi.postBotForArms(
-  WorkplaceApi.postBotForTest(
+  WorkplaceApi.postBotForArms(
     '# ' + data[index.requesterName] + 'さんからPC配布依頼が来ました。\n' +
     '```\n' + 
     '依頼者      　 ： ' + data[index.requesterName] + '\n' +
@@ -55,58 +53,7 @@ function botWhenRequestComes(data, index) { // PC依頼用BOTで送る
     'ご要望・ご連絡　　： ' + data[index.request] + '\n' +
     '特定期間の利用か： ' + data[index.limitedTime] + '\n' +
     '```\n担当者はこの投稿にリアクションした上、シートの担当者欄に自身の名前を入れてください。\n▶[シートを確認する](https://docs.google.com/spreadsheets/d/' + MY_SHEET_ID + '/edit#gid=1398613080)'
-   );// , 'pc');
-}
-
-/**
- * 依頼者にPC提案のメールを送る
- */
-function sendMail() {
-  var rowNum = Browser.inputBox('依頼者にPC提案のメールを送ります', '対応する行数を半角数字で入力してください。', Browser.Buttons.OK);
-  var data = createMailData(rowNum);
-  if (!data || data.text === '') return;
-  
-  // メールを送る
-  var index = ordersSheet.getIndex();
-  var target = ordersSheet.values[Number(rowNum) - 1];
-  var sendSuccess = mailSheet.sendMail(target[index.requesterMail], target[index.userMail], data.title, data.text, true);
-  if (!sendSuccess) return;
-  
-  ordersSheet.sheet.getRange(ordersSheet.getRowKey('mailDate') + rowNum).setValue(Utilities.formatDate(new Date(), 'JST', 'MM/dd HH:mm'));
-  ordersSheet.sheet.getRange(ordersSheet.getRowKey('mailText') + rowNum).setValue(data.text); 
-}
-
-/**
- * メール本文を作る
- */
-function createMailText() {
-  var rowNum = Browser.inputBox('メール本文を作成します。', '対応する行数を半角数字で入力してください。', Browser.Buttons.OK);
-  var data = createMailData(rowNum);
-  if (!data || data.text === '') return;
-  ordersSheet.sheet.getRange(ordersSheet.getRowKey('mailText') + rowNum).setValue(data.text);
-  Browser.msgBox(rowNum + '行目【メール文章】欄に入力されました。ご確認ください。');
-}
-
-/**
- * メールデータを作って返す
- */
-function createMailData(rowNum) {
-  var target = ordersSheet.values[Number(rowNum) - 1];
-  if (!target) { Browser.msgBox('データが見つかりません'); return null; }
-  
-  var index = ordersSheet.getIndex();
-  
-  if (target[index.mailDate] != '') { Browser.msgBox(rowNum + '行目はすでにメールを送っています。'); return null; }
-  if (target[index.checkPerson] === '') { Browser.msgBox(rowNum + '行目は担当者が書かれていません。記入してやり直してください。'); return null; }
-  
-  var candidate1 = target[index.candidate1];
-  if (candidate1 === '') { Browser.msgBox(rowNum + '行目は提案するPC情報が書かれていません。記入してやり直してください。'); return null; }
-  
-  var popup = Browser.msgBox(target[index.requesterName] + 'さんの依頼に返事をします。', '実行してよろしいですか？ ' + TEXT_MAIL_SETTING, Browser.Buttons.OK_CANCEL);
-  if (popup != 'ok') return null;
-  
-  var mailType = (candidate1.indexOf('CA-') === 0) ? 'proposalByStock' : 'newRental';
-  return mailSheet.createMailData(target, mailType);
+   , 'pc');
 }
 
 /**
