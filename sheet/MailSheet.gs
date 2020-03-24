@@ -17,8 +17,9 @@ var MailSheet = function() {
       return;
     }
     this.index = {
-      proposalByStock: filterData.indexOf('提案(在庫)'),
-      newRental      : filterData.indexOf('提案(新規レンタル)')
+      proposalByStock : filterData.indexOf('提案(在庫)'),
+      newRental       : filterData.indexOf('提案(新規レンタル)'),
+      yokokawaExchange: filterData.indexOf('横河レンタルPC修理手配案内')
     };
     return this.index;
   }
@@ -38,13 +39,13 @@ MailSheet.prototype = {
   /**
    * メール件名とテキストを返します
    * @param array 依頼待機リストの１行分のデータ
-   * @pram type string 以下のいずれか{proposalByStock or newRental}
+   * @pram type string 以下のいずれか{proposalByStock or newRental or yokokawaExchange}
    * @return { title: string, text: string }
    */
   createMailData: function(data, type) {
     var index = this.getIndex();
     return {
-      title: this.values[this.rowIndex.title][index[type]].replace('{userName}', data[ordersSheet.getIndex().requesterName]),
+      title: this.values[this.rowIndex.title][index[type]].replace('{userName}', data[ordersSheet.getIndex().requesterName]).replace('{orderNo}', data[ordersSheet.getIndex().orderNo]),
       text: this.replaceText(this.values[this.rowIndex.text][index[type]], data, type)
     };
   },
@@ -54,7 +55,7 @@ MailSheet.prototype = {
     var pcText = '';
     if(type === 'proposalByStock') pcText = this.createPcText(candidates);
     else if (type === 'newRental') pcText = rentalSheet.createRentalPcText(candidates);
-    if (pcText === '') return '';
+    if ((type === 'proposalByStock' || type === 'newRental') && pcText === '') return '';
     
     return text
       .replace('{userName}', data[index.requesterName] + 'さん' + (data[index.userName] === '' ? '' : '\n  CC: ' + data[index.userName] + 'さん'))
@@ -166,20 +167,6 @@ MailSheet.prototype = {
 };
 var mailSheet = new MailSheet();
 
-function mailTest() {
-  var data = mailSheet.createMailData(ordersSheet.values[10], 'newRental');
-  return
-  /*var pcData = KintonePCData.pcDataSheet.values[1714];
-  var pcTitles = KintonePCData.pcDataSheet.getTitles();
-  var v = pcData[pcTitles.rental_end.index]
-  var vS = Utilities.formatDate(pcData[pcTitles.rental_end.index], 'JST', 'yyyy-MM-dd')*/
-  
-    // 2020/02/03
-  var data = mailSheet.createMailData(ordersSheet.values[5], 'proposalByStock');
-  mailSheet.sheet.getRange('C6').setValue(data.text)
-  var hoge = ''
-}
-
 /**
  * 依頼者にPC提案のメールを送る
  */
@@ -188,14 +175,7 @@ function sendMail() {
   var data = createMailData(rowNum);
   if (!data || data.text === '') return;
   
-  // メールを送る
-  var index = ordersSheet.getIndex();
-  var target = ordersSheet.values[Number(rowNum) - 1];
-  var sendSuccess = mailSheet.sendMail(target[index.requesterMail], target[index.userMail], data.title, data.text, true);
-  if (!sendSuccess) return;
-  
-  ordersSheet.sheet.getRange(ordersSheet.getRowKey('mailDate') + rowNum).setValue(Utilities.formatDate(new Date(), 'JST', 'MM/dd HH:mm'));
-  ordersSheet.sheet.getRange(ordersSheet.getRowKey('mailText') + rowNum).setValue(data.text); 
+  sendMailForUser(rowNum, data); // メールを送る
 }
 
 /**
@@ -204,9 +184,7 @@ function sendMail() {
 function createMailText() {
   var rowNum = Browser.inputBox('メール本文を作成します。', '対応する行数を半角数字で入力してください。', Browser.Buttons.OK);
   var data = createMailData(rowNum);
-  if (!data || data.text === '') return;
-  ordersSheet.sheet.getRange(ordersSheet.getRowKey('mailText') + rowNum).setValue(data.text);
-  Browser.msgBox(rowNum + '行目【メール文章】欄に入力されました。ご確認ください。');
+  if (data && data.text != '') setMailText(rowNum, data.text);;
 }
 
 /**
@@ -229,4 +207,59 @@ function createMailData(rowNum) {
   
   var mailType = (candidate1.indexOf('CA-') === 0) ? 'proposalByStock' : 'newRental';
   return mailSheet.createMailData(target, mailType);
+}
+
+/**
+ * 横河の故障交換を案内するメールを送る
+ */
+function sendYokokawaExchangeMail() {
+  var rowNum = Browser.inputBox('依頼者に横河の故障交換を案内するメールを送ります', '対応する行数を半角数字で入力してください。', Browser.Buttons.OK);
+  var data = createRentalMailData(rowNum);
+  if (!data || data.text === '') return;
+  
+  sendMailForUser(rowNum, data); // メールを送る
+}
+
+/**
+ * 横河の故障交換を案内するメールを作る
+ */
+function createYokokawaExchangeMail() {
+  var rowNum = Browser.inputBox('依頼者に横河の故障交換を案内するメール本文を作成します。', '対応する行数を半角数字で入力してください。', Browser.Buttons.OK);
+  var data = createRentalMailData(rowNum);
+  if (data && data.text != '') setMailText(rowNum, data.text);
+}
+
+/**
+ * 横河故障交換のメールデータを作って返す
+ */
+function createRentalMailData(rowNum) {
+  var target = ordersSheet.values[Number(rowNum) - 1];
+  if (!target) { Browser.msgBox('データが見つかりません'); return null; }
+  
+  var index = ordersSheet.getIndex();
+  
+  if (target[index.mailDate] != '') { Browser.msgBox(rowNum + '行目はすでにメールを送っています。'); return null; }
+  if (target[index.checkPerson] === '') { Browser.msgBox(rowNum + '行目は担当者が書かれていません。記入してやり直してください。'); return null; }
+  
+  var popup = Browser.msgBox(target[index.requesterName] + 'さんの依頼に横河の故障交換案内を返します。', '実行してよろしいですか？ ' + TEXT_MAIL_SETTING, Browser.Buttons.OK_CANCEL);
+  if (popup != 'ok') return null;
+  
+  return mailSheet.createMailData(target, 'yokokawaExchange');
+}
+
+/**
+ * 利用者にメールを送る。成功したらシートに書き込む
+ */
+function sendMailForUser(rowNum, data) {
+  var index = ordersSheet.getIndex();
+  var target = ordersSheet.values[Number(rowNum) - 1];
+  var sendSuccess = mailSheet.sendMail(target[index.requesterMail], target[index.userMail], data.title, data.text, true);
+  if (!sendSuccess) return;
+  ordersSheet.sheet.getRange(ordersSheet.getRowKey('mailDate') + rowNum).setValue(Utilities.formatDate(new Date(), 'JST', 'MM/dd HH:mm'));
+  ordersSheet.sheet.getRange(ordersSheet.getRowKey('mailText') + rowNum).setValue(data.text); 
+}
+
+function setMailText(rowNum, text) {
+  ordersSheet.sheet.getRange(ordersSheet.getRowKey('mailText') + rowNum).setValue(text);
+  Browser.msgBox(rowNum + '行目【メール文章】欄に入力されました。ご確認ください。');
 }

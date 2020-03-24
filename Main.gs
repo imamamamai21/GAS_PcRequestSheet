@@ -66,6 +66,8 @@ function createMenu() {
   // メニューにアイテムを追加する
   menu.addItem('PC案内メールを送る', 'sendMail');
   menu.addItem('PC案内メール本文を作る', 'createMailText');
+  menu.addItem('レンタルPC修理交換案内メールを送る', 'sendYokokawaExchangeMail');
+  menu.addItem('レンタルPC修理交換案内メール本文を作る', 'createYokokawaExchangeMail');
   menu.addToUi();
 }
 
